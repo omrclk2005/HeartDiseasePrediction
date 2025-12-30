@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
-import pickle
+import pandas as pd
+import joblib
 import os
 
 # --------------------------------------------------
@@ -12,12 +13,18 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# Load trained model (correct relative path)
+# Load trained Logistic Regression pipeline
 # --------------------------------------------------
-MODEL_PATH = os.path.join("models", "heart_model.pkl")
+MODEL_PATH = os.path.join("models", "lr_pipeline.pkl")
+lr_pipeline = joblib.load(MODEL_PATH)
 
-with open(MODEL_PATH, "rb") as f:
-    model = pickle.load(f)
+# --------------------------------------------------
+# Feature order (must match training)
+# --------------------------------------------------
+FEATURE_COLUMNS = [
+    "age", "sex", "cp", "trestbps", "chol", "fbs", "restecg",
+    "thalach", "exang", "oldpeak", "slope", "ca", "thal"
+]
 
 # --------------------------------------------------
 # App title & description
@@ -25,7 +32,7 @@ with open(MODEL_PATH, "rb") as f:
 st.title("Heart Disease Prediction System")
 st.write(
     "This application predicts the risk of heart disease using a "
-    "machine learning model trained on clinical health data."
+    "Logistic Regression model with proper feature preprocessing."
 )
 
 st.divider()
@@ -55,25 +62,20 @@ thal = st.selectbox("Thalassemia (0–3)", [0, 1, 2, 3])
 st.divider()
 
 if st.button("Predict Heart Disease Risk"):
-    input_data = np.array([[
+    input_df = pd.DataFrame([[
         age, sex, cp, trestbps, chol, fbs, restecg,
         thalach, exang, oldpeak, slope, ca, thal
-    ]])
+    ]], columns=FEATURE_COLUMNS)
 
-    # Predict probability
-    risk_probability = model.predict_proba(input_data)[0][1]
+    risk_probability = lr_pipeline.predict_proba(input_df)[0][1]
     risk_percentage = risk_probability * 100
 
     st.subheader("Prediction Result")
-    st.metric(
-        label="Estimated Heart Disease Risk",
-        value=f"{risk_percentage:.2f}%"
-    )
+    st.write(f"Estimated probability of heart disease: **{risk_percentage:.2f}%**")
 
-    # Optional interpretation
-    if risk_percentage >= 70:
-        st.error("Very High Risk – Medical consultation strongly advised.")
-    elif risk_percentage >= 40:
-        st.warning("Moderate Risk – Lifestyle and medical follow-up recommended.")
+    if risk_percentage >= 60:
+        st.error("High Risk – Medical consultation advised.")
+    elif risk_percentage >= 30:
+        st.warning("Moderate Risk – Lifestyle changes recommended.")
     else:
-        st.success("Low Risk – Maintain healthy lifestyle.")
+        st.success("Low Risk – Maintain healthy habits.")
